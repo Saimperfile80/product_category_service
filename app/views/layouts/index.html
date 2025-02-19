@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Rails</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body>
+    <h1>Liste des Catégories</h1>
+    <ul id="category-list"></ul>
+
+    <script>
+        // 🔐 Clé et IV (en Base64)
+        const AES_KEY = "2g1NHUHZJ+olrnvgqs4eu4T225M3yg0sb1hIMumSM0Y=";  
+        const AES_IV = "3F9lTkAdudlG6NcR8EtAUw==";   
+
+        async function fetchCategories() {
+            try {
+                const response = await fetch("http://localhost:3000/api/v1/product_categories");
+                const data = await response.json();
+
+            
+                const decryptedData = decryptAES(data.data, AES_KEY, AES_IV);
+
+                
+                if (!decryptedData || !Array.isArray(decryptedData)) {
+                    console.error("Erreur: données malformées après déchiffrement.");
+                    return;
+                }
+
+                
+                const list = document.getElementById("category-list");
+                decryptedData.forEach(category => {
+                    const li = document.createElement("li");
+                    li.textContent = `${category.name}: ${category.description}`;
+                    list.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Erreur lors de la récupération des catégories:", error);
+            }
+        }
+
+        function decryptAES(encryptedData, key, iv) {
+            try {
+                // 🔄 Convertir les clés et les données chiffrées en format CryptoJS
+                const keyParsed = CryptoJS.enc.Base64.parse(key);
+                const ivParsed = CryptoJS.enc.Base64.parse(iv);
+                const encryptedWordArray = CryptoJS.enc.Base64.parse(encryptedData);
+
+                // 🔓 Déchiffrement
+                const decryptedBytes = CryptoJS.AES.decrypt(
+                    { ciphertext: encryptedWordArray },
+                    keyParsed,
+                    {
+                        iv: ivParsed,
+                        mode: CryptoJS.mode.CBC,
+                        padding: CryptoJS.pad.Pkcs7
+                    }
+                );
+
+                // 🛑 Vérifier si la sortie est vide
+                const decryptedText = decryptedBytes.toString(CryptoJS.enc.Utf8);
+                if (!decryptedText) {
+                    throw new Error("Échec du déchiffrement, données corrompues ou clé incorrecte.");
+                }
+
+                return JSON.parse(decryptedText);
+            } catch (error) {
+                console.error("Erreur lors du déchiffrement:", error);
+                return null;
+            }
+        }
+
+        // Lancer la récupération des catégories
+        fetchCategories();
+    </script>
+</body>
+</html>
